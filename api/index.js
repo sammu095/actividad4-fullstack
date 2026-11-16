@@ -7,10 +7,10 @@ module.exports = async (req, res) => {
         await connectDB();
         return app(req, res);
     } catch (error) {
-        console.error('Error de conexión con MongoDB:', error.message);
+        console.error('Error de conexión:', error.message);
 
         return res.status(500).json({
-            mensaje: 'Error al conectar con la base de datos'
+            mensaje: 'Error al conectar con MongoDB'
         });
     }
 };
