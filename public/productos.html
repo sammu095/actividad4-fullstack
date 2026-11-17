@@ -1,0 +1,188 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productos - Gestión de Productos</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 30px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #1e293b;
+        }
+
+        .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .salir {
+            background: #dc2626;
+        }
+
+        .salir:hover {
+            background: #b91c1c;
+        }
+
+        #mensaje {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .tabla-contenedor {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        th {
+            background: #2563eb;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="top">
+            <h1>Gestión de Productos</h1>
+            <button class="salir" onclick="cerrarSesion()">Cerrar sesión</button>
+        </div>
+
+        <h2>Productos registrados</h2>
+
+        <p id="mensaje">Cargando productos...</p>
+
+        <div class="tabla-contenedor">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Categoría</th>
+                    </tr>
+                </thead>
+                <tbody id="listaProductos"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const mensaje = document.getElementById('mensaje');
+        const listaProductos = document.getElementById('listaProductos');
+
+        async function cargarProductos() {
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const respuesta = await fetch('/api/products', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const datos = await respuesta.json();
+
+                if (!respuesta.ok) {
+                    throw new Error(datos.mensaje || 'No se pudieron cargar los productos');
+                }
+
+                if (datos.length === 0) {
+                    mensaje.textContent = 'No hay productos registrados todavía.';
+                    return;
+                }
+
+                mensaje.textContent = 'Productos cargados correctamente.';
+
+                datos.forEach(producto => {
+                    const fila = document.createElement('tr');
+
+                    [
+                        producto.nombre,
+                        producto.descripcion,
+                        `$${Number(producto.precio).toFixed(2)}`,
+                        producto.stock,
+                        producto.categoria
+                    ].forEach(valor => {
+                        const celda = document.createElement('td');
+                        celda.textContent = valor ?? '';
+                        fila.appendChild(celda);
+                    });
+
+                    listaProductos.appendChild(fila);
+                });
+
+            } catch (error) {
+                mensaje.textContent = error.message;
+                mensaje.style.color = 'red';
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        cargarProductos();
+    </script>
+</body>
+</html>
