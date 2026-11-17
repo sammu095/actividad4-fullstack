@@ -4,33 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Productos - Gestión de Productos</title>
+    <title>Gestión de Productos</title>
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: Arial, sans-serif;
             background: #f1f5f9;
             margin: 0;
-            padding: 30px;
+            padding: 25px;
             color: #1e293b;
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: auto;
             background: white;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            text-align: center;
-            color: #1e293b;
+            box-shadow: 0 4px 15px rgba(0,0,0,.1);
         }
 
         .top {
@@ -38,38 +31,44 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 15px;
+        }
+
+        h1 { margin: 10px 0; }
+
+        h2 { margin-top: 30px; }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 7px 0 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
         }
 
         button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
             background: #2563eb;
             color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
             cursor: pointer;
+            margin: 3px;
         }
 
-        button:hover {
-            background: #1d4ed8;
+        button:hover { background: #1d4ed8; }
+
+        .eliminar, .salir { background: #dc2626; }
+        .eliminar:hover, .salir:hover { background: #b91c1c; }
+
+        .formulario {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
         }
 
-        .salir {
-            background: #dc2626;
-        }
-
-        .salir:hover {
-            background: #b91c1c;
-        }
-
-        #mensaje {
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .tabla-contenedor {
-            overflow-x: auto;
-        }
+        .tabla-contenedor { overflow-x: auto; }
 
         table {
             width: 100%;
@@ -88,101 +87,229 @@
             color: white;
         }
 
-        tr:hover {
-            background: #f8fafc;
+        #mensaje {
+            margin-top: 15px;
+            text-align: center;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="top">
-            <h1>Gestión de Productos</h1>
-            <button class="salir" onclick="cerrarSesion()">Cerrar sesión</button>
-        </div>
+<div class="container">
 
-        <h2>Productos registrados</h2>
-
-        <p id="mensaje">Cargando productos...</p>
-
-        <div class="tabla-contenedor">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Descripción</th>
-                        <th>Precio</th>
-                        <th>Stock</th>
-                        <th>Categoría</th>
-                    </tr>
-                </thead>
-                <tbody id="listaProductos"></tbody>
-            </table>
-        </div>
+    <div class="top">
+        <h1>Gestión de Productos</h1>
+        <button class="salir" onclick="cerrarSesion()">Cerrar sesión</button>
     </div>
 
-    <script>
-        const token = localStorage.getItem('token');
-        const mensaje = document.getElementById('mensaje');
-        const listaProductos = document.getElementById('listaProductos');
+    <h2>Registrar producto</h2>
 
-        async function cargarProductos() {
-            if (!token) {
-                window.location.href = '/';
+    <form id="productoForm" class="formulario">
+        <input id="nombre" type="text" placeholder="Nombre del producto" required>
+
+        <input id="descripcion" type="text" placeholder="Descripción" required>
+
+        <input id="precio" type="number" min="0" step="0.01" placeholder="Precio" required>
+
+        <input id="stock" type="number" min="0" step="1" placeholder="Stock" required>
+
+        <input id="categoria" type="text" placeholder="Categoría" required>
+
+        <button type="submit" id="guardar">Registrar producto</button>
+        <button type="button" id="cancelar" hidden onclick="cancelarEdicion()">Cancelar edición</button>
+    </form>
+
+    <p id="mensaje"></p>
+
+    <h2>Productos registrados</h2>
+
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Precio</th>
+                    <th>Stock</th>
+                    <th>Categoría</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="listaProductos"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('token');
+    const formulario = document.getElementById('productoForm');
+    const mensaje = document.getElementById('mensaje');
+    const lista = document.getElementById('listaProductos');
+
+    let productoEditando = null;
+    let productosActuales = [];
+
+    if (!token) {
+        window.location.href = '/';
+    }
+
+    async function peticion(url, metodo = 'GET', datos = null) {
+        const opciones = {
+            method: metodo,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        };
+
+        if (datos) {
+            opciones.body = JSON.stringify(datos);
+        }
+
+        const respuesta = await fetch(url, opciones);
+        const resultado = await respuesta.json();
+
+        if (!respuesta.ok) {
+            throw new Error(resultado.mensaje || 'Ocurrió un error');
+        }
+
+        return resultado;
+    }
+
+    async function cargarProductos() {
+        try {
+            productosActuales = await peticion('/api/products');
+            lista.innerHTML = '';
+
+            if (productosActuales.length === 0) {
+                lista.innerHTML = `
+                    <tr>
+                        <td colspan="6">No hay productos registrados todavía.</td>
+                    </tr>
+                `;
                 return;
             }
 
-            try {
-                const respuesta = await fetch('/api/products', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+            productosActuales.forEach(producto => {
+                const fila = document.createElement('tr');
+
+                const valores = [
+                    producto.nombre,
+                    producto.descripcion,
+                    '$' + Number(producto.precio).toFixed(2),
+                    producto.stock,
+                    producto.categoria
+                ];
+
+                valores.forEach(valor => {
+                    const celda = document.createElement('td');
+                    celda.textContent = valor ?? '';
+                    fila.appendChild(celda);
                 });
 
-                const datos = await respuesta.json();
+                const acciones = document.createElement('td');
 
-                if (!respuesta.ok) {
-                    throw new Error(datos.mensaje || 'No se pudieron cargar los productos');
-                }
+                const editar = document.createElement('button');
+                editar.textContent = 'Editar';
+                editar.onclick = () => prepararEdicion(producto);
 
-                if (datos.length === 0) {
-                    mensaje.textContent = 'No hay productos registrados todavía.';
-                    return;
-                }
+                const eliminar = document.createElement('button');
+                eliminar.textContent = 'Eliminar';
+                eliminar.className = 'eliminar';
+                eliminar.onclick = () => eliminarProducto(producto._id);
 
-                mensaje.textContent = 'Productos cargados correctamente.';
+                acciones.appendChild(editar);
+                acciones.appendChild(eliminar);
+                fila.appendChild(acciones);
 
-                datos.forEach(producto => {
-                    const fila = document.createElement('tr');
+                lista.appendChild(fila);
+            });
 
-                    [
-                        producto.nombre,
-                        producto.descripcion,
-                        `$${Number(producto.precio).toFixed(2)}`,
-                        producto.stock,
-                        producto.categoria
-                    ].forEach(valor => {
-                        const celda = document.createElement('td');
-                        celda.textContent = valor ?? '';
-                        fila.appendChild(celda);
-                    });
+        } catch (error) {
+            mensaje.style.color = 'red';
+            mensaje.textContent = error.message;
+        }
+    }
 
-                    listaProductos.appendChild(fila);
-                });
+    formulario.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-            } catch (error) {
-                mensaje.textContent = error.message;
-                mensaje.style.color = 'red';
+        const datos = {
+            nombre: document.getElementById('nombre').value.trim(),
+            descripcion: document.getElementById('descripcion').value.trim(),
+            precio: Number(document.getElementById('precio').value),
+            stock: Number(document.getElementById('stock').value),
+            categoria: document.getElementById('categoria').value.trim()
+        };
+
+        try {
+            if (productoEditando) {
+                await peticion(
+                    `/api/products/${productoEditando}`,
+                    'PUT',
+                    datos
+                );
+                mensaje.textContent = 'Producto actualizado correctamente.';
+            } else {
+                await peticion('/api/products', 'POST', datos);
+                mensaje.textContent = 'Producto registrado correctamente.';
             }
-        }
 
-        function cerrarSesion() {
-            localStorage.removeItem('token');
-            window.location.href = '/';
-        }
+            mensaje.style.color = 'green';
+            formulario.reset();
+            cancelarEdicion();
+            await cargarProductos();
 
-        cargarProductos();
-    </script>
+        } catch (error) {
+            mensaje.style.color = 'red';
+            mensaje.textContent = error.message;
+        }
+    });
+
+    function prepararEdicion(producto) {
+        productoEditando = producto._id;
+
+        document.getElementById('nombre').value = producto.nombre;
+        document.getElementById('descripcion').value = producto.descripcion;
+        document.getElementById('precio').value = producto.precio;
+        document.getElementById('stock').value = producto.stock;
+        document.getElementById('categoria').value = producto.categoria;
+
+        document.getElementById('guardar').textContent = 'Guardar cambios';
+        document.getElementById('cancelar').hidden = false;
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicion() {
+        productoEditando = null;
+        formulario.reset();
+        document.getElementById('guardar').textContent = 'Registrar producto';
+        document.getElementById('cancelar').hidden = true;
+    }
+
+    async function eliminarProducto(id) {
+        if (!confirm('¿Deseas eliminar este producto?')) return;
+
+        try {
+            await peticion(`/api/products/${id}`, 'DELETE');
+            mensaje.style.color = 'green';
+            mensaje.textContent = 'Producto eliminado correctamente.';
+            await cargarProductos();
+
+        } catch (error) {
+            mensaje.style.color = 'red';
+            mensaje.textContent = error.message;
+        }
+    }
+
+    function cerrarSesion() {
+        localStorage.removeItem('token');
+        window.location.href = '/';
+    }
+
+    cargarProductos();
+</script>
+
 </body>
 </html>
